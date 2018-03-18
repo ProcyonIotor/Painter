@@ -1,0 +1,4 @@
+Known issues:
+
+- Ignore backfacing to be implemented.
+- Painting ignores the object selection.
