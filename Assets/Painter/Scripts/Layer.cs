@@ -45,7 +45,17 @@ public abstract class Layer : ScriptableObject {
 
     public virtual void SetColors(Color[] colors)
     {
+        
+    }
 
+    public virtual void SetTransparency(float[] transparency)
+    {
+
+    }
+
+    public virtual Color[] GetColors()
+    {
+        return null;
     }
 
     public Color GetBlendTargetColor(Color sourceColor, Color blendColor, float opacity, bool[] isColorActive)

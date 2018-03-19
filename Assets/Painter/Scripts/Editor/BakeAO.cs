@@ -40,8 +40,8 @@ namespace Painter
             for (int i = 0; i < vertexStreams.Length; i++)
             {
                 Vector3[] vertices = vertexStreams[i].vertexStream.vertices;
-                Vector3[] normals = vertexStreams[i].vertexStream.normals;
-                Color[] color = vertexStreams[i].vertexStream.colors;
+                Vector3[] normals = vertexStreams[i].meshFilter.sharedMesh.normals;
+                Color[] color = vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].GetColors();
                 Color[] aoColors = new Color[vertices.Length];
                 for (int j = 0; j < vertices.Length; j++)
                 {
@@ -67,7 +67,15 @@ namespace Painter
                     else if (aoBlendMode == AOBlendMode.Multiply)
                         aoColors[j] = new Color(assignToColorChannel[0] ? aoColors[j].r * color[j].r : color[j].r, assignToColorChannel[1] ? aoColors[j].g * color[j].g : color[j].g, assignToColorChannel[2] ? aoColors[j].b * color[j].b : color[j].b, assignToColorChannel[3] ? aoColors[j].a * color[j].a : color[j].a);
                 }
-                vertexStreams[i].vertexStream.colors = aoColors;
+                //vertexStreams[i].vertexStream.colors = aoColors;
+                float[] transparencyOverride = new float[aoColors.Length];
+                for(int k = 0; k < aoColors.Length; k++)
+                {
+                    transparencyOverride[k] = 1f;
+                }
+                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].SetColors(aoColors);
+                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].SetTransparency(transparencyOverride);
+                vertexStreams[i].RecalculateOutputColors();
             }
 
             for (int i = 0; i < colliders.Count; i++)

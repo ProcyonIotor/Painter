@@ -40,6 +40,21 @@ public class PaintLayer : Layer {
         }
     }
 
+    public override void SetColors(Color[] colors)
+    {
+        _colors = colors;
+    }
+
+    public override void SetTransparency(float[] transparency)
+    {
+        _transparency = transparency;
+    }
+
+    public override Color[] GetColors()
+    {
+        return _colors;
+    }
+
     public override Color[] GetOutputColors(Color[] inputColors)
     {
         Color[] outputColors = new Color[inputColors.Length];
