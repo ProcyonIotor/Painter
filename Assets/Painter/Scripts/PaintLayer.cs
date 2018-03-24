@@ -17,7 +17,8 @@ public class PaintLayer : Layer {
             if (_colors == null || _colors.Length == 0)
             {
                 _colors = new Color[vertexCount];
-            }                        
+            }
+            Debug.Log("Returning " + _colors.Length);
             return _colors;
         }
         set

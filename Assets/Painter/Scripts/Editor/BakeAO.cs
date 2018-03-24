@@ -41,8 +41,12 @@ namespace Painter
             {
                 Vector3[] vertices = vertexStreams[i].vertexStream.vertices;
                 Vector3[] normals = vertexStreams[i].meshFilter.sharedMesh.normals;
-                Color[] color = vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].GetColors();
+                PaintLayer activeLayer = (PaintLayer) vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex];
+                Color[] color = activeLayer.GetColors();
+                Debug.Log(vertexStreams[i].layerStack.activeLayerIndex);
                 Color[] aoColors = new Color[vertices.Length];
+                Debug.Log(color.Length);
+                Debug.Log(aoColors.Length);
                 for (int j = 0; j < vertices.Length; j++)
                 {
                     Vector3 worldSpaceNormal = vertexStreams[i].transform.TransformDirection(normals[j]);
@@ -58,16 +62,18 @@ namespace Painter
                         Vector3 offset = Vector3.Reflect(randomizedNormal, worldSpaceNormal) * -bias;
                         if (Physics.Linecast(worldSpacePosition + offset, worldSpacePosition + randomizedNormal * maxDistance + offset, out hit))
                             rayHitSum += Mathf.Clamp01(1 - hit.distance / maxDistance);
+                        else if(Physics.Linecast(worldSpacePosition + randomizedNormal * maxDistance + offset, worldSpacePosition + offset, out hit))
+                            rayHitSum += Mathf.Clamp01(1 - (maxDistance-hit.distance) / maxDistance);
                     }
                     float occlusionFactor = Mathf.Clamp01((rayHitSum * intensity / samples));
                     Color occlusionColor = Color.Lerp(maxColor, minColor, occlusionFactor);
                     aoColors[j] = occlusionColor;
+                    
                     if (aoBlendMode == AOBlendMode.Replace)
                         aoColors[j] = new Color(assignToColorChannel[0] ? aoColors[j].r : color[j].r, assignToColorChannel[1] ? aoColors[j].g : color[j].g, assignToColorChannel[2] ? aoColors[j].b : color[j].b, assignToColorChannel[3] ? aoColors[j].a : color[j].a);
                     else if (aoBlendMode == AOBlendMode.Multiply)
                         aoColors[j] = new Color(assignToColorChannel[0] ? aoColors[j].r * color[j].r : color[j].r, assignToColorChannel[1] ? aoColors[j].g * color[j].g : color[j].g, assignToColorChannel[2] ? aoColors[j].b * color[j].b : color[j].b, assignToColorChannel[3] ? aoColors[j].a * color[j].a : color[j].a);
                 }
-                //vertexStreams[i].vertexStream.colors = aoColors;
                 float[] transparencyOverride = new float[aoColors.Length];
                 for(int k = 0; k < aoColors.Length; k++)
                 {
