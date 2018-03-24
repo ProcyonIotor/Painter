@@ -9,5 +9,5 @@ public class VertexPaintData
 }
 
 public class PaintTarget : MonoBehaviour {
-	public Dictionary<PaintLayer, VertexPaintData[]> layerPaintData = new Dictionary<PaintLayer, VertexPaintData[]>();
+	public Dictionary<Layer, VertexPaintData[]> layerPaintData = new Dictionary<Layer, VertexPaintData[]>();
 }

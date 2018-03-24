@@ -19,7 +19,7 @@ namespace Painter
         public void OnEnable()
         {
             vertexStream = (VertexStream)target;
-            if (paintLayers == null)
+            if (paintLayerList == null)
                 paintLayers = vertexStream.layerStack.layers;
             if (paintLayerList == null)
             {
@@ -51,7 +51,7 @@ namespace Painter
 
         private void OnAddItem(ReorderableList list)
         {
-            vertexStream.layerStack.Add(new PaintLayer(), vertexStream.meshFilter.sharedMesh.vertexCount);
+            vertexStream.layerStack.Add(new Layer(), vertexStream.meshFilter.sharedMesh.vertexCount);
             list.index = vertexStream.layerStack.activeLayerIndex;
             OnChangeItem(list);
         }
@@ -128,14 +128,14 @@ namespace Painter
         private void OnDrawElement(Rect rect, int index, bool active, bool focused)
         {
             EditorGUI.BeginChangeCheck();
-            PaintLayer item = paintLayers[index] as PaintLayer;
+            Layer item = paintLayers[index];
             item.layerName = EditorGUI.TextField(new Rect(rect.x + 18, rect.y, item.layerName.Length * 8 + 10, 18), item.layerName, EditorStyles.label);
             item.isActive = EditorGUI.Toggle(new Rect(rect.x, rect.y, 18, 18), item.isActive);
             if (vertexStream.layerStack.activeLayerIndex == index)
             {
-                PaintLayer paintItem = item as PaintLayer;
+                Layer paintItem = item;
                 EditorGUI.LabelField(new Rect(rect.x + 18, rect.y + 20, 80, 18), "Blend Mode:");
-                item.blendMode = (PaintLayer.BlendMode)EditorGUI.EnumPopup(new Rect(rect.x + 95, rect.y + 20, rect.width / 2f - 80, 18), item.blendMode);
+                item.blendMode = (Layer.BlendMode)EditorGUI.EnumPopup(new Rect(rect.x + 95, rect.y + 20, rect.width / 2f - 80, 18), item.blendMode);
                 EditorGUI.LabelField(new Rect(rect.width / 2f + 60, rect.y + 20, 80, 18), "Opacity:");
                 paintItem.opacity = EditorGUI.Slider(new Rect(rect.width / 2f + 115, rect.y + 20, rect.width / 2f - 80, 18), paintItem.opacity, 0f, 1f);
                 EditorGUI.LabelField(new Rect(rect.x + 18, rect.y + 40, 80, 18), "Color Mask:");

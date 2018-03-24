@@ -91,15 +91,14 @@ namespace Painter
             return vertexStream.colors;
         }
 
-        public void SetVertexColor(int vertexID, Color color)
-        {
-            _vertexStream.colors[vertexID] = color;
-        }
-
         public void SetLayerVertexColors(Color[] colors)
         {
-            layerStack.layers[layerStack.activeLayerIndex].SetColors(colors);
-            Debug.Log("Setting vertex colors");
+            layerStack.layers[layerStack.activeLayerIndex].Colors = colors;
+        }
+
+        public void SetLayerTransparency(float[] transparency)
+        {
+            layerStack.layers[layerStack.activeLayerIndex].Transparency = transparency;
         }
 
         void Awake()
@@ -131,7 +130,7 @@ namespace Painter
                 if (layerStack.layerCount == 0)
                 {
                     int vertexCount = meshFilter.sharedMesh.vertexCount;
-                    layerStack.Add(new PaintLayer(), vertexCount);
+                    layerStack.Add(new Layer(), vertexCount);
                 }
             }           
 

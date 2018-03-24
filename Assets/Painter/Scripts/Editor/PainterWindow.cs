@@ -205,6 +205,34 @@ namespace Painter
             EditorGUI.EndChangeCheck();
         }
 
+        void ApplyColorFill()
+        {
+            GameObject[] selectedObjects = Selection.gameObjects;
+            List<VertexStream> selectedVertexStreamList = new List<VertexStream>();
+            for (int i = 0; i < selectedObjects.Length; i++)
+            {
+                VertexStream stream = selectedObjects[i].GetComponent<VertexStream>();
+                if (stream != null)
+                    selectedVertexStreamList.Add(stream);
+            }
+
+            for(int i = 0; i < selectedVertexStreamList.Count; i++)
+            {
+                Layer activeLayer = selectedVertexStreamList[i].layerStack.layers[selectedVertexStreamList[i].layerStack.activeLayerIndex];
+                Color[] fillColors = new Color[selectedVertexStreamList[i].vertexStream.vertexCount];
+                float[] fillTransparency = new float[selectedVertexStreamList[i].vertexStream.vertexCount];
+
+                for (int j = 0; j < fillColors.Length; j++)
+                {
+                    fillColors[j] = brushSettings.color;
+                    fillTransparency[j] = 1.0f;
+                }
+                selectedVertexStreamList[i].SetLayerVertexColors(fillColors);
+                selectedVertexStreamList[i].SetLayerTransparency(fillTransparency);
+                selectedVertexStreamList[i].RecalculateOutputColors();
+            }         
+        }
+
         void DrawPaintWindow()
         {
             if (isPaintFocus)
@@ -251,6 +279,8 @@ namespace Painter
                     if (!brushSettings.isRGBActive[3])
                         GUI.enabled = true;
                     EditorGUILayout.EndHorizontal();
+                    if (GUILayout.Button("Color Fill"))
+                        ApplyColorFill();
                 }
                 GUI.enabled = true;
                 EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);//Separator line

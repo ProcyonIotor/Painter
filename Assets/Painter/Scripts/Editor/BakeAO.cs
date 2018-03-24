@@ -41,12 +41,9 @@ namespace Painter
             {
                 Vector3[] vertices = vertexStreams[i].vertexStream.vertices;
                 Vector3[] normals = vertexStreams[i].meshFilter.sharedMesh.normals;
-                PaintLayer activeLayer = (PaintLayer) vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex];
-                Color[] color = activeLayer.GetColors();
-                Debug.Log(vertexStreams[i].layerStack.activeLayerIndex);
+                Layer activeLayer = vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex];
+                Color[] color = activeLayer.Colors;
                 Color[] aoColors = new Color[vertices.Length];
-                Debug.Log(color.Length);
-                Debug.Log(aoColors.Length);
                 for (int j = 0; j < vertices.Length; j++)
                 {
                     Vector3 worldSpaceNormal = vertexStreams[i].transform.TransformDirection(normals[j]);
@@ -79,8 +76,8 @@ namespace Painter
                 {
                     transparencyOverride[k] = 1f;
                 }
-                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].SetColors(aoColors);
-                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].SetTransparency(transparencyOverride);
+                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].Colors = aoColors;
+                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].Transparency = transparencyOverride;
                 vertexStreams[i].RecalculateOutputColors();
             }
 

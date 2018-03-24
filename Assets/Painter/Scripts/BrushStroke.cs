@@ -78,8 +78,8 @@ namespace Painter
 
                     // COLOR
                     Color[] targetColors = new Color[targetStream.vertexCount];
-                    PaintLayer paintLayer = affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex] as PaintLayer;
-                    targetColors = paintLayer.colors;
+                    Layer paintLayer = affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex];
+                    targetColors = paintLayer.Colors;
 
                     Color sumBlendColor = new Color();
                     Color blendColor = new Color();
@@ -125,22 +125,22 @@ namespace Painter
                                         float b = settings.isRGBActive[2] ? settings.color.b : targetStream.colors[j].b;
                                         float a = settings.isRGBActive[3] ? settings.color.a : targetStream.colors[j].a;
                                         Color targetColor = new Color(r, g, b, a);
-                                        if (paintLayer.transparency[j] == 0)
+                                        if (paintLayer.Transparency[j] == 0)
                                         {
                                             targetColors[j] = targetColor;
                                             //paintLayer.transparency[j] = 1;
                                         }
                                         else
-                                            targetColors[j] = Color.Lerp(paintLayer.colors[j], targetColor, influence);
-                                        if (paintLayer.transparency[j] < 1.0f)
-                                            paintLayer.transparency[j] = Mathf.Lerp(paintLayer.transparency[j], 1.0f, influence);
+                                            targetColors[j] = Color.Lerp(paintLayer.Colors[j], targetColor, influence);
+                                        if (paintLayer.Transparency[j] < 1.0f)
+                                            paintLayer.Transparency[j] = Mathf.Lerp(paintLayer.Transparency[j], 1.0f, influence);
                                         break;
                                     case BrushSettings.PaintMode.Erase:
-                                        if (paintLayer.transparency[j] > 0.0f)
-                                            paintLayer.transparency[j] = Mathf.Lerp(paintLayer.transparency[j], 0.0f, influence);
+                                        if (paintLayer.Transparency[j] > 0.0f)
+                                            paintLayer.Transparency[j] = Mathf.Lerp(paintLayer.Transparency[j], 0.0f, influence);
                                         break;
                                     case BrushSettings.PaintMode.Blend:
-                                        targetColors[j] = Color.Lerp(paintLayer.colors[j], blendColor, influence);
+                                        targetColors[j] = Color.Lerp(paintLayer.Colors[j], blendColor, influence);
                                         break;
                                 }
                             }
@@ -150,7 +150,7 @@ namespace Painter
 
                     affectedMeshStreams[i].vertexStream = targetStream;
                     // COLOR
-                    affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex].SetColors(targetStream.colors);
+                    affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex].Colors = targetStream.colors;
                     affectedMeshStreams[i].RecalculateOutputColors();
                 }               
             }

@@ -27,12 +27,13 @@ public class LayerStack {
         }           
     }
 
-    public PaintLayer Add(PaintLayer layer, int vertexCount)
+    public Layer Add(Layer layer, int vertexCount)
     {
         layers.Add(layer);
-        PaintLayer newLayer = layers[layers.Count - 1] as PaintLayer;
+        Layer newLayer = layers[layers.Count - 1];
         newLayer.vertexCount = vertexCount;
-        newLayer.SetDefaultLayerProperties(layers.Count - 1);
+        int index = layers.Count - 1;
+        newLayer.layerName = "New Paint Layer " + index;
         activeLayerIndex = layerCount - 1; 
         return newLayer;
     }
@@ -55,7 +56,7 @@ public class LayerStack {
     {
         outputColors = sourceColors;
         for (int i = 0; i < layers.Count; i++)
-            if (layers[i] is PaintLayer && layers[i].isActive)
+            if (layers[i].isActive)
                 outputColors = layers[i].GetOutputColors(outputColors);
         return outputColors;
     }

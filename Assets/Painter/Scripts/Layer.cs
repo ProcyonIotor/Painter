@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-public abstract class Layer : ScriptableObject {
+public class Layer : ScriptableObject {
     public int vertexCount;
     public enum BlendMode
     {
@@ -24,38 +24,54 @@ public abstract class Layer : ScriptableObject {
         LighterColor,
     }
 
+    [SerializeField] Color[] _colors;
+    [SerializeField] float[] _transparency; // The per-vertex influence on the vertex colors, where 0 is no influence and 1 is full influence. This is 0 by default.
     public bool isActive = true;
+    [SerializeField] public float opacity = 1f;
+    [SerializeField] public bool isLocked = false;
+    [SerializeField] public bool[] isColorActive = { true, true, true, true };
     public string layerName = "New Layer";
     public BlendMode blendMode = BlendMode.Normal;
 
-    public virtual Color GetOutputColor(Color inputColor)
+    public Color[] Colors
     {
-        return inputColor;
+        get
+        {
+            if (_colors == null || _colors.Length == 0)
+                _colors = new Color[vertexCount];
+            return _colors;
+        }
+        set
+        {
+            _colors = value;
+        }
     }
 
-    public virtual Color[] GetOutputColors(Color[] inputColors)
+    public float[] Transparency
     {
-        return inputColors;
+        get
+        {
+            if (_transparency == null || _transparency.Length == 0)
+                _transparency = new float[vertexCount];
+            return _transparency;
+        }
+        set
+        {
+            _transparency = value;
+        }
     }
 
-    public virtual void SetDefaultLayerProperties(int index)
+    public Color[] GetOutputColors(Color[] inputColors)
     {
-
-    }
-
-    public virtual void SetColors(Color[] colors)
-    {
-        
-    }
-
-    public virtual void SetTransparency(float[] transparency)
-    {
-
-    }
-
-    public virtual Color[] GetColors()
-    {
-        return null;
+        Color[] outputColors = new Color[inputColors.Length];
+        for (int i = 0; i < inputColors.Length; i++)
+        {
+            if (opacity * Transparency[i] > 0f)
+                outputColors[i] = GetBlendTargetColor(inputColors[i], Colors[i], opacity * Transparency[i], isColorActive);
+            else
+                outputColors[i] = inputColors[i];
+        }
+        return outputColors;
     }
 
     public Color GetBlendTargetColor(Color sourceColor, Color blendColor, float opacity, bool[] isColorActive)
