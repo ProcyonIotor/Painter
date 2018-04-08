@@ -23,12 +23,12 @@ namespace Painter
             Bake
         }
 
-        string[] toolbarNames = new string[] { "Scene", "Paint", "Bake" };
+        string[] toolbarNames = new string[] { "Selection", "Paint", "Bake" };
         string[] paintModeNames = new string[] { "Paint", "Erase", "Blend" };
 
         VertexPainterUtility vertexPainterUtility = VertexPainterUtility.Paint;
 
-        private MeshFilter[] paintSelection;
+        private List<Color> colorSwatches = new List<Color>();
 
         BakeAO bakeAO = new BakeAO();
 
@@ -40,7 +40,7 @@ namespace Painter
         [MenuItem("Window/Painter")]
         public static void ShowWindow()
         {
-            EditorWindow.GetWindow(typeof(PainterWindow), false, "Painter", true);
+            EditorWindow.GetWindow(typeof(PainterWindow), true, "Painter", true);
         }
 
         Vector2 scrollPosition;
@@ -56,7 +56,7 @@ namespace Painter
             {
                 case VertexPainterUtility.Scene:
                     isPaintFocus = false;
-                    DrawSceneWindow();
+                    DrawSelectionWindow();
                     break;
                 case VertexPainterUtility.Paint:
                     DrawPaintWindow();
@@ -72,16 +72,19 @@ namespace Painter
         List<VertexStream> sceneVertexStreamList = new List<VertexStream>();
         private ReorderableList reorderableVertexStreamList;
         VertexStream selectedVertexStream;
-        void DrawSceneWindow()
+        private string selectByLayerNameString = "Layer Name";
+
+        void DrawSelectionWindow()
         {
+            Tools.hidden = false;
             EditorGUILayout.LabelField("Paint Targets", EditorStyles.boldLabel);
             if (reorderableVertexStreamList != null)
                 reorderableVertexStreamList.DoLayoutList();
-            EditorGUILayout.LabelField("Selection", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Selection Tools", EditorStyles.boldLabel);
             GUILayout.BeginHorizontal();
             if (selectedVertexStream == null)
                 GUI.enabled = false;
-            if (GUILayout.Button("Select Object"))
+            if (GUILayout.Button("Find in Scene"))
                 Selection.activeGameObject = selectedVertexStream.gameObject;
             GUI.enabled = true;
             if (sceneVertexStreamList.Count == 0)
@@ -94,8 +97,14 @@ namespace Painter
                 GameObject[] vertexStreamObjectArray = vertexStreamObjectList.ToArray();
                 Selection.objects = vertexStreamObjectArray;
             }
-            GUI.enabled = true;
             GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Filter By Layer Name"))
+                Selection.objects = SelectByLayerName();
+            selectByLayerNameString = GUILayout.TextField(selectByLayerNameString);
+            GUILayout.EndHorizontal();
+            GUI.enabled = true;
+
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Add Selection"))
             {
@@ -118,16 +127,6 @@ namespace Painter
                 }
                 UpdatePaintTargetList();
             }
-            if (GUILayout.Button("Remove Selection"))
-            {
-                GameObject[] objSelection = Selection.gameObjects;
-                for (int i = 0; i < objSelection.Length; i++)
-                    if (objSelection[i].GetComponent<VertexStream>() != null)
-                        DestroyImmediate(objSelection[i].GetComponent<VertexStream>());
-                UpdateVertexStreamList();
-                UpdatePaintTargetList();
-                OnSelectionChanged();
-            }
             GUILayout.EndHorizontal();
         }
 
@@ -142,6 +141,7 @@ namespace Painter
             UpdateVertexStreamList();
             UpdatePaintTargetList();
             GetPaintSelection();
+            LoadEditorPrefs();
             EditorApplication.hierarchyWindowChanged += OnHierarchyChanged;
             Selection.selectionChanged += OnSelectionChanged;
         }
@@ -170,7 +170,7 @@ namespace Painter
             for (int i = 0; i < objSelection.Length; i++)
             {
                 VertexStream[] childVertexStreams = objSelection[i].GetComponentsInChildren<VertexStream>();
-                for(int j = 0; j < childVertexStreams.Length; j++)
+                for (int j = 0; j < childVertexStreams.Length; j++)
                     if (!mfSelection.Contains(childVertexStreams[j]))
                         mfSelection.Add(childVertexStreams[j]);
             }
@@ -216,22 +216,38 @@ namespace Painter
                     selectedVertexStreamList.Add(stream);
             }
 
-            for(int i = 0; i < selectedVertexStreamList.Count; i++)
+            for (int i = 0; i < selectedVertexStreamList.Count; i++)
             {
-                Layer activeLayer = selectedVertexStreamList[i].layerStack.layers[selectedVertexStreamList[i].layerStack.activeLayerIndex];
-                Color[] fillColors = new Color[selectedVertexStreamList[i].vertexStream.vertexCount];
-                float[] fillTransparency = new float[selectedVertexStreamList[i].vertexStream.vertexCount];
+                Layer targetLayer = selectedVertexStreamList[i].TargetLayer;
+                Color[] fillColors = new Color[selectedVertexStreamList[i].Stream.vertexCount];
+                float[] fillTransparency = new float[selectedVertexStreamList[i].Stream.vertexCount];
 
                 for (int j = 0; j < fillColors.Length; j++)
                 {
                     fillColors[j] = brushSettings.color;
                     fillTransparency[j] = 1.0f;
                 }
-                selectedVertexStreamList[i].SetLayerVertexColors(fillColors);
-                selectedVertexStreamList[i].SetLayerTransparency(fillTransparency);
+                targetLayer.Colors = fillColors;
+                targetLayer.Transparency = fillTransparency;
                 selectedVertexStreamList[i].RecalculateOutputColors();
-            }         
+            }
         }
+
+        Texture2D CreateColorSwatchPreview(Color color)
+        {
+            Color opaqueColor = color;
+            opaqueColor.a = 1f;
+            Texture2D texture = new Texture2D(30, 30);
+            Color[] colors = new Color[30 * 30];
+            for (int i = 0; i < colors.Length; i++)
+                colors[i] = opaqueColor;
+            texture.SetPixels(colors);
+            texture.Apply();
+            return texture;
+        }
+
+        List<Texture2D> colorSwatchPreviews = new List<Texture2D>();
+        int activeColorSwatch = 0;
 
         void DrawPaintWindow()
         {
@@ -247,6 +263,43 @@ namespace Painter
                 if (brushSettings.isColorActive)
                 {
                     brushSettings.color = EditorGUILayout.ColorField("Color", brushSettings.color);
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    EditorGUI.BeginChangeCheck();
+                    activeColorSwatch = GUILayout.Toolbar(activeColorSwatch, colorSwatchPreviews.ToArray());
+                    if (EditorGUI.EndChangeCheck())
+                        brushSettings.color = colorSwatches[activeColorSwatch];
+                    if (GUILayout.Button("+", GUILayout.Width(36), GUILayout.Height(36)))
+                    {
+                        colorSwatches.Add(brushSettings.color);
+                        colorSwatchPreviews.Add(CreateColorSwatchPreview(brushSettings.color));
+                        EditorPrefs.SetInt("Swatch_Count", colorSwatches.Count);
+                        EditorPrefs.SetFloat("Swatch_" + (colorSwatches.Count - 1) + "_R", brushSettings.color.r);
+                        EditorPrefs.SetFloat("Swatch_" + (colorSwatches.Count - 1) + "_G", brushSettings.color.g);
+                        EditorPrefs.SetFloat("Swatch_" + (colorSwatches.Count - 1) + "_B", brushSettings.color.b);
+                        EditorPrefs.SetFloat("Swatch_" + (colorSwatches.Count - 1) + "_A", brushSettings.color.a);
+                    }
+                    if (GUILayout.Button(EditorGUIUtility.IconContent("TreeEditor.Trash"), GUILayout.Width(36), GUILayout.Height(36)))
+                    {
+                        if(EditorUtility.DisplayDialog("Clear Swatches",
+                "Are you sure you want to remove all " + colorSwatches.Count
+                + " swatches?", "Clear", "Cancel"))
+                        {
+                            for (int i = colorSwatches.Count - 1; i >= 0; i--)
+                            {
+                                EditorPrefs.DeleteKey("Swatch_" + i + "_R");
+                                EditorPrefs.DeleteKey("Swatch_" + i + "_G");
+                                EditorPrefs.DeleteKey("Swatch_" + i + "_B");
+                                EditorPrefs.DeleteKey("Swatch_" + i + "_A");
+                            }
+                            colorSwatches.Clear();
+                            colorSwatchPreviews.Clear();
+                            EditorPrefs.SetInt("Swatch_Count", colorSwatches.Count);
+                        }                       
+                    }
+
+                    GUILayout.FlexibleSpace();
+                    EditorGUILayout.EndHorizontal();
                     EditorGUILayout.BeginHorizontal();
                     brushSettings.isRGBActive[0] = EditorGUILayout.Toggle("R", brushSettings.isRGBActive[0]);
                     if (!brushSettings.isRGBActive[0])
@@ -317,6 +370,7 @@ namespace Painter
 
         void DrawBakeWindow()
         {
+            Tools.hidden = false;
             EditorGUILayout.LabelField("AO Bake Settings", EditorStyles.boldLabel);
             bakeAO.samples = EditorGUILayout.IntField("Samples", Mathf.Max(1, bakeAO.samples));
             bakeAO.maxDistance = EditorGUILayout.FloatField("Max Sample Distance", Mathf.Max(0, bakeAO.maxDistance));
@@ -350,32 +404,9 @@ namespace Painter
             DrawSelectionList();
         }
 
-        void CreatePaintSelection()
-        {
-            GameObject[] objSelection = Selection.gameObjects;
-            List<MeshFilter> mfSelection = new List<MeshFilter>();
-            for (int i = 0; i < objSelection.Length; i++)
-                if (objSelection[i].GetComponent<MeshFilter>())
-                {
-                    mfSelection.Add(objSelection[i].GetComponent<MeshFilter>());
-                    if (objSelection[i].GetComponent<VertexStream>() == null)
-                        objSelection[i].AddComponent<VertexStream>();
-                }
-            paintSelection = mfSelection.ToArray();
-        }
-
-        void ClearPaintSelection()
-        {
-            paintSelection = null;
-        }
-
         void OnInspectorUpdate()
         {
             Repaint();
-        }
-
-        void UpdateBrushPreview() {
-
         }
 
         void OnSceneGUI(SceneView sceneView)
@@ -417,7 +448,7 @@ namespace Painter
             {
                 isPainting = true;
                 brushStroke = new BrushStroke();
-                Undo.RegisterCompleteObjectUndo(brushStroke.vertexStreamMeshes, "Vertex Painting");
+                Undo.RegisterCompleteObjectUndo(brushStroke.VertexStreamMeshes, "Vertex Painting");
                 GetWindow(typeof(PainterWindow)).Repaint();
                 sceneView.Focus();
             }
@@ -432,7 +463,7 @@ namespace Painter
 
             if (isPainting)
             {
-                Undo.RecordObjects(brushStroke.vertexStreamMeshes, "Vertex Painting");
+                Undo.RecordObjects(brushStroke.VertexStreamMeshes, "Vertex Painting");
                 RaycastHit hit;
                 Vector3 centerMousePosition = currentEvent.mousePosition;
                 //Adjust for screen
@@ -456,6 +487,27 @@ namespace Painter
             }
         }
 
+        GameObject[] SelectByLayerName()
+        {
+            VertexStream[] vertexStreamArray = (VertexStream[])FindObjectsOfType<VertexStream>();
+            List<GameObject> filteredStreamList = new List<GameObject>();
+            for (int i = 0; i < vertexStreamArray.Length; i++)
+            {
+                List<Layer> layers = vertexStreamArray[i].layerStack.Layers;
+                for (int j = 0; j < layers.Count; j++)
+                {
+                    if (layers[j].layerName == selectByLayerNameString)
+                    {
+                        filteredStreamList.Add(vertexStreamArray[i].gameObject);
+                        vertexStreamArray[i].layerStack.targetLayerIndex = j;
+                        break;
+                    }
+                }
+            }
+            GameObject[] filteredStreamArray = filteredStreamList.ToArray();
+            return filteredStreamArray;
+        }
+
         // LOAD EDITOR SETTINGS
         void OnFocus()
         {
@@ -470,9 +522,48 @@ namespace Painter
             if (EditorPrefs.HasKey("PaintMode"))
                 brushSettings.paintMode = (BrushSettings.PaintMode)EditorPrefs.GetInt("PaintMode");
 
+            if (EditorPrefs.HasKey("Swatch_Count"))
+            {
+                colorSwatches = new List<Color>();
+                colorSwatchPreviews = new List<Texture2D>();
+                int swatchCount = EditorPrefs.GetInt("Swatch_Count");
+                for (int i = 0; i < swatchCount; i++)
+                {
+                    colorSwatches.Add(new Color(EditorPrefs.GetFloat("Swatch_" + i + "_R", brushSettings.color.r), EditorPrefs.GetFloat("Swatch_" + i + "_G"), EditorPrefs.GetFloat("Swatch_" + i + "_B"), EditorPrefs.GetFloat("Swatch_" + i + "_A")));
+                    colorSwatchPreviews.Add(CreateColorSwatchPreview(colorSwatches[i]));
+                }
+            }
             // Remove and re-add the sceneGUI delegate
             SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
             SceneView.onSceneGUIDelegate += this.OnSceneGUI;
+        }
+
+        void LoadEditorPrefs()
+        {
+            if (EditorPrefs.HasKey("Radius"))
+                brushSettings.radius = EditorPrefs.GetFloat("Radius");
+            if (EditorPrefs.HasKey("Strength"))
+                brushSettings.strength = EditorPrefs.GetFloat("Strength");
+            if (EditorPrefs.HasKey("Falloff"))
+                brushSettings.falloff = EditorPrefs.GetFloat("Falloff");
+            if (EditorPrefs.HasKey("PaintVertexColors"))
+                brushSettings.isColorActive = EditorPrefs.GetBool("PaintVertexColors");
+            if (EditorPrefs.HasKey("PaintMode"))
+                brushSettings.paintMode = (BrushSettings.PaintMode)EditorPrefs.GetInt("PaintMode");
+            if (EditorPrefs.HasKey("BrushColor_R"))
+                brushSettings.color = new Color(EditorPrefs.GetFloat("BrushColor_R"), EditorPrefs.GetFloat("BrushColor_G"), EditorPrefs.GetFloat("BrushColor_B"), EditorPrefs.GetFloat("BrushColor_A"));
+
+            if (EditorPrefs.HasKey("Swatch_Count"))
+            {
+                colorSwatches = new List<Color>();
+                colorSwatchPreviews = new List<Texture2D>();
+                int swatchCount = EditorPrefs.GetInt("Swatch_Count");
+                for (int i = 0; i < swatchCount; i++)
+                {
+                    colorSwatches.Add(new Color(EditorPrefs.GetFloat("Swatch_" + i + "_R", brushSettings.color.r), EditorPrefs.GetFloat("Swatch_" + i + "_G"), EditorPrefs.GetFloat("Swatch_" + i + "_B"), EditorPrefs.GetFloat("Swatch_" + i + "_A")));
+                    colorSwatchPreviews.Add(CreateColorSwatchPreview(colorSwatches[i]));
+                }
+            }
         }
 
         // SAVE EDITOR SETTINGS
@@ -483,10 +574,15 @@ namespace Painter
             EditorPrefs.SetFloat("Strength", brushSettings.strength);
             EditorPrefs.SetFloat("Falloff", brushSettings.falloff);
             EditorPrefs.SetInt("PaintMode", (int)brushSettings.paintMode);
+            EditorPrefs.SetFloat("BrushColor_R", brushSettings.color.r);
+            EditorPrefs.SetFloat("BrushColor_G", brushSettings.color.g);
+            EditorPrefs.SetFloat("BrushColor_B", brushSettings.color.b);
+            EditorPrefs.SetFloat("BrushColor_A", brushSettings.color.a);
         }
 
         void OnDestroy()
         {
+            Tools.hidden = false;
             SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
             Undo.undoRedoPerformed -= OnUndo;
         }

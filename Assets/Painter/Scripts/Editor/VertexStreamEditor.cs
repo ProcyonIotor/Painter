@@ -20,7 +20,7 @@ namespace Painter
         {
             vertexStream = (VertexStream)target;
             if (paintLayerList == null)
-                paintLayers = vertexStream.layerStack.layers;
+                paintLayers = vertexStream.layerStack.Layers;
             if (paintLayerList == null)
             {
                 paintLayerList = new ReorderableList(paintLayers, typeof(Layer), true, true, true, true);
@@ -34,7 +34,7 @@ namespace Painter
                 paintLayerList.onCanRemoveCallback += OnCanRemoveItem;
                 paintLayerList.onChangedCallback += OnChangeItem;
                 if (paintLayerList.index == 0)
-                    paintLayerList.index = vertexStream.layerStack.activeLayerIndex;
+                    paintLayerList.index = vertexStream.layerStack.targetLayerIndex;
             }
         }
 
@@ -52,7 +52,7 @@ namespace Painter
         private void OnAddItem(ReorderableList list)
         {
             vertexStream.layerStack.Add(new Layer(), vertexStream.meshFilter.sharedMesh.vertexCount);
-            list.index = vertexStream.layerStack.activeLayerIndex;
+            list.index = vertexStream.layerStack.targetLayerIndex;
             OnChangeItem(list);
         }
 
@@ -65,8 +65,9 @@ namespace Painter
         {
             if (list.count > 1)
             {
-                vertexStream.layerStack.RemoveAt(vertexStream.layerStack.activeLayerIndex);
-                list.index = vertexStream.layerStack.activeLayerIndex;
+                vertexStream.layerStack.RemoveAt(vertexStream.layerStack.targetLayerIndex);
+                list.index = vertexStream.layerStack.targetLayerIndex;
+                vertexStream.RecalculateOutputColors();
                 EditorUtility.SetDirty(target);
                 EditorSceneManager.MarkSceneDirty(vertexStream.gameObject.scene);
             }
@@ -75,6 +76,7 @@ namespace Painter
         public override void OnInspectorGUI()
         {
             EditorGUI.BeginChangeCheck();
+            vertexStream.autoReprojection = EditorGUILayout.Toggle(new GUIContent("Automatic Reprojection", "Automatically attempt to update the vertex colors after external modifications to the source mesh based on the nearest vertices in the original source mesh."), vertexStream.autoReprojection);
             vertexStream.sourceColorMode = (VertexStream.SourceColorMode)EditorGUILayout.EnumPopup("Source Color", vertexStream.sourceColorMode);
             if (vertexStream.sourceColorMode == VertexStream.SourceColorMode.Override || vertexStream.meshFilter.sharedMesh.vertexCount != vertexStream.meshFilter.sharedMesh.colors.Length)
                 vertexStream.sourceOverrideColor = EditorGUILayout.ColorField("Override Color", vertexStream.sourceOverrideColor);
@@ -84,18 +86,19 @@ namespace Painter
                 vertexStream.RecalculateOutputColors();
             paintLayerList.DoLayoutList();
             if (GUILayout.Button("Open Vertex Painter"))
-                EditorWindow.GetWindow(typeof(PainterWindow));
+                PainterWindow.ShowWindow();
+                //EditorWindow.GetWindow(typeof(PainterWindow));
             if (GUILayout.Button("Bake Vertex Stream"))
                 BakeVertexStream();
-            if (GUILayout.Button("Transfer Cache Attributes"))
-                vertexStream.TransferCacheAttributes();
+            //if (GUILayout.Button("Transfer Cache Attributes"))
+            //    vertexStream.TransferCacheAttributes();
         }
 
         void BakeVertexStream()
         {
             if (EditorUtility.DisplayDialog("Apply to Source Mesh", "This action will apply all changes made to the mesh to all instances of the mesh and remove the Vertex Stream component. Are you sure you wish to continue?", "Continue", "Cancel"))
             {
-                vertexStream.BaseMesh = vertexStream.vertexStream;
+                vertexStream.BaseMesh = vertexStream.Stream;
                 vertexStream.meshRenderer.additionalVertexStreams.Clear();
                 DestroyImmediate(vertexStream);
             }
@@ -104,19 +107,19 @@ namespace Painter
         private float OnElementHeight(int index)
         {
             float height = 20;
-            if (vertexStream.layerStack.activeLayerIndex == index)
+            if (vertexStream.layerStack.targetLayerIndex == index)
                 height += 40;
             return height;
         }
 
         private void OnSelectItem(ReorderableList list)
         {
-            vertexStream.layerStack.activeLayerIndex = list.index;
+            vertexStream.layerStack.targetLayerIndex = list.index;
         }
 
         private void OnDrawElementBackground(Rect rect, int index, bool active, bool focused)
         {
-            if (vertexStream.layerStack.activeLayerIndex == index)
+            if (vertexStream.layerStack.targetLayerIndex == index)
             {
                 Texture2D tex = new Texture2D(1, 1);
                 tex.SetPixel(0, 0, new Color(0.33f, 0.66f, 1f, 0.66f));
@@ -131,7 +134,7 @@ namespace Painter
             Layer item = paintLayers[index];
             item.layerName = EditorGUI.TextField(new Rect(rect.x + 18, rect.y, item.layerName.Length * 8 + 10, 18), item.layerName, EditorStyles.label);
             item.isActive = EditorGUI.Toggle(new Rect(rect.x, rect.y, 18, 18), item.isActive);
-            if (vertexStream.layerStack.activeLayerIndex == index)
+            if (vertexStream.layerStack.targetLayerIndex == index)
             {
                 Layer paintItem = item;
                 EditorGUI.LabelField(new Rect(rect.x + 18, rect.y + 20, 80, 18), "Blend Mode:");

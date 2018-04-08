@@ -9,7 +9,8 @@ namespace Painter
     [ExecuteInEditMode]
     [CanEditMultipleObjects]
     public class VertexStream : MonoBehaviour
-    {       
+    {
+        [SerializeField] public bool autoReprojection = true;
         [SerializeField] public MeshFilter meshFilter;
         [SerializeField] public MeshRenderer meshRenderer;
         [SerializeField] private Mesh _baseMesh;
@@ -58,6 +59,14 @@ namespace Painter
             }
         }
 
+        public Layer TargetLayer
+        {
+            get
+            {
+                return layerStack.Layers[layerStack.targetLayerIndex];
+            }
+        } 
+
         public Mesh BaseMesh
         {
             get
@@ -71,7 +80,7 @@ namespace Painter
             }
         }
 
-        public Mesh vertexStream
+        public Mesh Stream
         {
             get
             {
@@ -87,18 +96,8 @@ namespace Painter
 
         public Color[] RecalculateOutputColors()
         {
-            vertexStream.colors = layerStack.RecalculateOutputColors(SourceColors);
-            return vertexStream.colors;
-        }
-
-        public void SetLayerVertexColors(Color[] colors)
-        {
-            layerStack.layers[layerStack.activeLayerIndex].Colors = colors;
-        }
-
-        public void SetLayerTransparency(float[] transparency)
-        {
-            layerStack.layers[layerStack.activeLayerIndex].Transparency = transparency;
+            Stream.colors = layerStack.RecalculateOutputColors(SourceColors);
+            return Stream.colors;
         }
 
         void Awake()
@@ -117,17 +116,17 @@ namespace Painter
                 if (instanceID == 0)
                     duplicateStreamMesh = CopyMeshProperties(BaseMesh);
                 else
-                    duplicateStreamMesh = CopyMeshProperties(vertexStream);
+                    duplicateStreamMesh = CopyMeshProperties(Stream);
                 _vertexStream = new Mesh();
-                vertexStream = duplicateStreamMesh;
-                vertexStream.name = BaseMesh.name + " (Vertex Stream)";
+                Stream = duplicateStreamMesh;
+                Stream.name = BaseMesh.name + " (Vertex Stream)";
                 instanceID = GetInstanceID();
             }
 
             if (layerStack == null)
             {
                 layerStack = new LayerStack();
-                if (layerStack.layerCount == 0)
+                if (layerStack.Count == 0)
                 {
                     int vertexCount = meshFilter.sharedMesh.vertexCount;
                     layerStack.Add(new Layer(), vertexCount);
@@ -136,16 +135,16 @@ namespace Painter
 
             
             // If the base mesh has no vertex colors, then add some.
-            if (vertexStream.colors.Length != vertexStream.vertexCount)
+            if (Stream.colors.Length != Stream.vertexCount)
             {
-                Color[] baseColors = new Color[vertexStream.vertexCount];
-                for (int i = 0; i < vertexStream.vertexCount; i++)
+                Color[] baseColors = new Color[Stream.vertexCount];
+                for (int i = 0; i < Stream.vertexCount; i++)
                     baseColors[i] = sourceOverrideColor;
                 BaseMesh.colors = baseColors;
-                vertexStream.colors = baseColors;
+                Stream.colors = baseColors;
                 BaseMesh.UploadMeshData(false);
-                vertexStream.UploadMeshData(false);
-                meshRenderer.additionalVertexStreams = vertexStream;
+                Stream.UploadMeshData(false);
+                meshRenderer.additionalVertexStreams = Stream;
             }
             
         }
@@ -170,6 +169,7 @@ namespace Painter
             return duplicate;
         }
 
+        /*
         public void TransferCacheAttributes()
         {
             Mesh streamCache = new Mesh();
@@ -207,22 +207,62 @@ namespace Painter
             }
             targetStream.colors = targetStreamColors;
 
-            vertexStream.Clear();
-            vertexStream = CopyMeshProperties(BaseMesh);
-            vertexStream.name = BaseMesh.name + " (Vertex Stream)";
-            vertexStream.colors = targetStream.colors;
-            vertexStream.UploadMeshData(false);
-            meshRenderer.additionalVertexStreams = vertexStream;
+            Stream.Clear();
+            Stream = CopyMeshProperties(BaseMesh);
+            Stream.name = BaseMesh.name + " (Vertex Stream)";
+            Stream.colors = targetStream.colors;
+            Stream.UploadMeshData(false);
+            meshRenderer.additionalVertexStreams = Stream;
+        }*/
+
+        void ReprojectMesh()
+        {
+            Vector3[] sourceVertices = Stream.vertices;
+            Vector3[] targetVertices = meshFilter.sharedMesh.vertices;
+            int[] nearestSourceVertexIndex = new int[targetVertices.Length];
+            for(int i = 0; i < targetVertices.Length; i++)
+            {
+                float minDistance = Mathf.Infinity;
+                for(int j = 0; j < sourceVertices.Length; j++)
+                {
+                    float distance = Vector3.Distance(targetVertices[i], sourceVertices[j]);
+                    if(distance < minDistance)
+                    {
+                        minDistance = distance;
+                        nearestSourceVertexIndex[i] = j;
+                    }
+                }
+            }
+
+            List<Layer> layers = layerStack.Layers;
+            for(int i = 0; i < layers.Count; i++)
+            {
+                Color[] sourceColors = layers[i].Colors;
+                float[] sourceTransparency = layers[i].Transparency;
+                layers[i].Colors = new Color[targetVertices.Length];
+                layers[i].Transparency = new float[targetVertices.Length];
+                for(int j = 0; j < targetVertices.Length; j++)
+                {
+                    layers[i].Colors[j] = sourceColors[nearestSourceVertexIndex[j]];
+                    layers[i].Transparency[j] = sourceTransparency[nearestSourceVertexIndex[j]];
+                }
+            }
+
+            Stream.vertices = meshFilter.sharedMesh.vertices;
+            RecalculateOutputColors();
         }
 
         // Update to keep the vertex color upon reloading a scene
 #if UNITY_EDITOR
         void Update()
         {
-            cacheVertexCount = vertexStream.vertexCount;
+            cacheVertexCount = Stream.vertexCount;
             sourceVertexCount = meshFilter.sharedMesh.vertexCount;
+            if (sourceVertexCount != cacheVertexCount)
+                if(autoReprojection)
+                    ReprojectMesh();
             if (meshRenderer != null)
-                meshRenderer.additionalVertexStreams = vertexStream;
+                meshRenderer.additionalVertexStreams = Stream;
         }
 #endif
     }

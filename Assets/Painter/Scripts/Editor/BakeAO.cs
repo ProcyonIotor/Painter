@@ -39,10 +39,10 @@ namespace Painter
             float radialSpread = Mathf.Deg2Rad * spread / 2;
             for (int i = 0; i < vertexStreams.Length; i++)
             {
-                Vector3[] vertices = vertexStreams[i].vertexStream.vertices;
+                Vector3[] vertices = vertexStreams[i].Stream.vertices;
                 Vector3[] normals = vertexStreams[i].meshFilter.sharedMesh.normals;
-                Layer activeLayer = vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex];
-                Color[] color = activeLayer.Colors;
+                Layer targetLayer = vertexStreams[i].TargetLayer;
+                Color[] color = targetLayer.Colors;
                 Color[] aoColors = new Color[vertices.Length];
                 for (int j = 0; j < vertices.Length; j++)
                 {
@@ -76,8 +76,8 @@ namespace Painter
                 {
                     transparencyOverride[k] = 1f;
                 }
-                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].Colors = aoColors;
-                vertexStreams[i].layerStack.layers[vertexStreams[i].layerStack.activeLayerIndex].Transparency = transparencyOverride;
+                targetLayer.Colors = aoColors;
+                targetLayer.Transparency = transparencyOverride;
                 vertexStreams[i].RecalculateOutputColors();
             }
 

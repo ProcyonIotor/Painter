@@ -10,7 +10,7 @@ namespace Painter
         public float falloff = 1;
         public float strength = 0.1f;
         public bool ignoreBackfacing = false;
-        public Color color = Color.white;
+        public Color color = new Color(1f,1f,1f,1f);
 
         public enum PaintMode
         {
@@ -39,13 +39,13 @@ namespace Painter
             if (!previewMeshStreamDict.ContainsKey(meshStream))
             {
                 Mesh previewMeshStream = new Mesh();
-                previewMeshStream = meshStream.vertexStream;
+                previewMeshStream = meshStream.Stream;
                 previewMeshStreamDict.Add(meshStream, previewMeshStream);
             }
         }
 
         // Get an array the edited meshes for undoing.
-        public Mesh[] vertexStreamMeshes
+        public Mesh[] VertexStreamMeshes
         {
             get
             {
@@ -55,7 +55,7 @@ namespace Painter
             }
         }
 
-        public VertexStream[] vertexStreamComponents
+        public VertexStream[] VertexStreamComponents
         {
             get
             {
@@ -71,15 +71,15 @@ namespace Painter
             // UPDATE COPY OF STREAM
             for (int i = 0; i < affectedMeshStreams.Length; i++)
             {
-                if (affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex].isActive)
+                if (affectedMeshStreams[i].TargetLayer.isActive)
                 {
-                    Mesh targetStream = affectedMeshStreams[i].vertexStream;
+                    Mesh targetStream = affectedMeshStreams[i].Stream;
                     targetStream.MarkDynamic();
 
                     // COLOR
                     Color[] targetColors = new Color[targetStream.vertexCount];
-                    Layer paintLayer = affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex];
-                    targetColors = paintLayer.Colors;
+                    Layer targetLayer = affectedMeshStreams[i].TargetLayer;
+                    targetColors = targetLayer.Colors;
 
                     Color sumBlendColor = new Color();
                     Color blendColor = new Color();
@@ -90,16 +90,16 @@ namespace Painter
                         List<Vector3> affectedBlendVertices = new List<Vector3>();
                         for (int k = 0; k < affectedMeshStreams.Length; k++)
                         {
-                            for (int j = 0; j < affectedMeshStreams[k].vertexStream.vertexCount; j++)
+                            for (int j = 0; j < affectedMeshStreams[k].Stream.vertexCount; j++)
                             {
 
-                                Vector3 vertexWP = affectedMeshStreams[k].transform.TransformPoint(affectedMeshStreams[k].vertexStream.vertices[j]);
+                                Vector3 vertexWP = affectedMeshStreams[k].transform.TransformPoint(affectedMeshStreams[k].Stream.vertices[j]);
                                 float distance = Vector3.Distance(position, vertexWP);
                                 if (distance < settings.radius)
                                 {
-                                    affectedBlendVertices.Add(affectedMeshStreams[k].vertexStream.vertices[j]);
+                                    affectedBlendVertices.Add(affectedMeshStreams[k].Stream.vertices[j]);
                                     if (settings.isColorActive)
-                                        sumBlendColor += affectedMeshStreams[k].vertexStream.colors[j];
+                                        sumBlendColor += affectedMeshStreams[k].Stream.colors[j];
                                 }
                             }
                         }
@@ -125,22 +125,22 @@ namespace Painter
                                         float b = settings.isRGBActive[2] ? settings.color.b : targetStream.colors[j].b;
                                         float a = settings.isRGBActive[3] ? settings.color.a : targetStream.colors[j].a;
                                         Color targetColor = new Color(r, g, b, a);
-                                        if (paintLayer.Transparency[j] == 0)
+                                        if (targetLayer.Transparency[j] == 0)
                                         {
                                             targetColors[j] = targetColor;
                                             //paintLayer.transparency[j] = 1;
                                         }
                                         else
-                                            targetColors[j] = Color.Lerp(paintLayer.Colors[j], targetColor, influence);
-                                        if (paintLayer.Transparency[j] < 1.0f)
-                                            paintLayer.Transparency[j] = Mathf.Lerp(paintLayer.Transparency[j], 1.0f, influence);
+                                            targetColors[j] = Color.Lerp(targetLayer.Colors[j], targetColor, influence);
+                                        if (targetLayer.Transparency[j] < 1.0f)
+                                            targetLayer.Transparency[j] = Mathf.Lerp(targetLayer.Transparency[j], 1.0f, influence);
                                         break;
                                     case BrushSettings.PaintMode.Erase:
-                                        if (paintLayer.Transparency[j] > 0.0f)
-                                            paintLayer.Transparency[j] = Mathf.Lerp(paintLayer.Transparency[j], 0.0f, influence);
+                                        if (targetLayer.Transparency[j] > 0.0f)
+                                            targetLayer.Transparency[j] = Mathf.Lerp(targetLayer.Transparency[j], 0.0f, influence);
                                         break;
                                     case BrushSettings.PaintMode.Blend:
-                                        targetColors[j] = Color.Lerp(paintLayer.Colors[j], blendColor, influence);
+                                        targetColors[j] = Color.Lerp(targetLayer.Colors[j], blendColor, influence);
                                         break;
                                 }
                             }
@@ -148,9 +148,9 @@ namespace Painter
                     }
                     targetStream.colors = targetColors;
 
-                    affectedMeshStreams[i].vertexStream = targetStream;
+                    affectedMeshStreams[i].Stream = targetStream;
                     // COLOR
-                    affectedMeshStreams[i].layerStack.layers[affectedMeshStreams[i].layerStack.activeLayerIndex].Colors = targetStream.colors;
+                    affectedMeshStreams[i].TargetLayer.Colors = targetStream.colors;
                     affectedMeshStreams[i].RecalculateOutputColors();
                 }               
             }

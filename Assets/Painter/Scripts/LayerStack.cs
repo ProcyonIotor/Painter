@@ -5,21 +5,25 @@ using UnityEngine;
 [System.Serializable]
 public class LayerStack {
     [SerializeField]
-    public int activeLayerIndex = 1;
+    public int targetLayerIndex = 1;
     [SerializeField]
     List<Layer> _layers = new List<Layer>();
     [SerializeField]
     Color[] outputColors = new Color[] { Color.white };
 
-    public List<Layer> layers
+    public List<Layer> Layers
     {
         get
         {
             return _layers;
         }
+        set
+        {
+            _layers = value;
+        }
     }
 
-    public int layerCount
+    public int Count
     {
         get
         {
@@ -29,35 +33,35 @@ public class LayerStack {
 
     public Layer Add(Layer layer, int vertexCount)
     {
-        layers.Add(layer);
-        Layer newLayer = layers[layers.Count - 1];
+        Layers.Add(layer);
+        Layer newLayer = Layers[Layers.Count - 1];
         newLayer.vertexCount = vertexCount;
-        int index = layers.Count - 1;
+        int index = Layers.Count - 1;
         newLayer.layerName = "New Paint Layer " + index;
-        activeLayerIndex = layerCount - 1; 
+        targetLayerIndex = Count - 1; 
         return newLayer;
     }
 
     public bool Remove(Layer layer)
     {
-        int index = layers.IndexOf(layer);
-        bool removed = layers.Remove(layer);
-        activeLayerIndex = index - 1;
+        int index = Layers.IndexOf(layer);
+        bool removed = Layers.Remove(layer);
+        targetLayerIndex = index - 1;
         return removed;
     }
 
     public void RemoveAt(int index)
     {
-        layers.RemoveAt(index);
-        activeLayerIndex = index - 1;
+        Layers.RemoveAt(index);
+        targetLayerIndex = index - 1;
     }
 
     public Color[] RecalculateOutputColors(Color[] sourceColors)
     {
         outputColors = sourceColors;
-        for (int i = 0; i < layers.Count; i++)
-            if (layers[i].isActive)
-                outputColors = layers[i].GetOutputColors(outputColors);
+        for (int i = 0; i < Layers.Count; i++)
+            if (Layers[i].isActive)
+                outputColors = Layers[i].GetOutputColors(outputColors);
         return outputColors;
     }
 }
